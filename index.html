@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CalTrack</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--tg-theme-bg-color, #ffffff);
+  color: var(--tg-theme-text-color, #000000);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Screens ── */
+.screen { display: none; padding: 16px 16px 90px; animation: fadeIn .2s ease; }
+.screen.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ── Setup ── */
+#setup { display: none; padding: 24px 20px; animation: fadeIn .2s ease; }
+.step { display: none; }
+.step.active { display: block; }
+
+.setup-title { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+.setup-sub   { font-size: 15px; color: var(--tg-theme-hint-color, #999); margin-bottom: 28px; }
+
+/* ── Cards ── */
+.card {
+  background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+/* ── Inputs ── */
+.inp {
+  width: 100%;
+  padding: 13px 16px;
+  border: 1.5px solid var(--tg-theme-hint-color, #ccc);
+  border-radius: 12px;
+  font-size: 16px;
+  background: var(--tg-theme-bg-color, #fff);
+  color: var(--tg-theme-text-color, #000);
+  outline: none;
+  transition: border-color .2s;
+  -webkit-appearance: none;
+}
+.inp:focus { border-color: var(--tg-theme-button-color, #2481cc); }
+.inp-label { font-size: 13px; color: var(--tg-theme-hint-color, #999); margin-bottom: 6px; display: block; }
+.inp-wrap { margin-bottom: 14px; }
+
+/* ── Buttons ── */
+.btn {
+  width: 100%;
+  padding: 15px;
+  background: var(--tg-theme-button-color, #2481cc);
+  color: var(--tg-theme-button-text-color, #fff);
+  border: none;
+  border-radius: 13px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.btn:active { opacity: .8; }
+.btn-ghost {
+  width: 100%;
+  padding: 14px;
+  background: none;
+  border: none;
+  font-size: 15px;
+  color: var(--tg-theme-hint-color, #999);
+  cursor: pointer;
+  margin-top: 6px;
+}
+.btn-danger {
+  width: 100%;
+  padding: 14px;
+  background: none;
+  border: 2px solid #f44336;
+  border-radius: 13px;
+  font-size: 15px;
+  color: #f44336;
+  cursor: pointer;
+  margin-top: 6px;
+}
+
+/* ── Option grid ── */
+.opt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.opt-btn {
+  padding: 15px 10px;
+  border: 2px solid var(--tg-theme-hint-color, #ccc);
+  border-radius: 13px;
+  text-align: center;
+  cursor: pointer;
+  background: none;
+  color: var(--tg-theme-text-color, #000);
+  font-size: 15px;
+  transition: all .15s;
+}
+.opt-btn.sel {
+  border-color: var(--tg-theme-button-color, #2481cc);
+  background: rgba(36,129,204,.1);
+  color: var(--tg-theme-button-color, #2481cc);
+}
+.opt-col { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.opt-big {
+  padding: 16px;
+  border: 2px solid var(--tg-theme-hint-color, #ccc);
+  border-radius: 13px;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  color: var(--tg-theme-text-color, #000);
+  transition: all .15s;
+}
+.opt-big .opt-title { font-size: 16px; font-weight: 600; }
+.opt-big .opt-sub { font-size: 13px; color: var(--tg-theme-hint-color, #999); margin-top: 2px; }
+.opt-big.sel { border-color: var(--tg-theme-button-color, #2481cc); background: rgba(36,129,204,.08); }
+
+/* ── Calorie Ring ── */
+.ring-wrap { display: flex; justify-content: center; margin: 8px 0 20px; }
+.ring-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+.ring-eaten { font-size: 38px; font-weight: 800; line-height: 1; }
+.ring-sub { font-size: 12px; color: var(--tg-theme-hint-color, #999); margin-top: 2px; }
+.ring-left { font-size: 14px; font-weight: 600; margin-top: 4px; }
+
+/* ── Macros ── */
+.macro-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.macro-item .macro-val { font-size: 20px; font-weight: 700; }
+.macro-item .macro-name { font-size: 12px; color: var(--tg-theme-hint-color, #999); margin-bottom: 4px; }
+.bar-bg { height: 5px; border-radius: 3px; background: rgba(0,0,0,.1); margin-top: 6px; }
+.bar-fill { height: 100%; border-radius: 3px; transition: width .6s ease; }
+
+/* ── Log items ── */
+.log-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(0,0,0,.07);
+}
+.log-item:last-child { border-bottom: none; }
+.log-name { font-size: 15px; font-weight: 500; }
+.log-macro { font-size: 12px; color: var(--tg-theme-hint-color, #999); margin-top: 2px; }
+.log-cal { font-size: 16px; font-weight: 700; color: var(--tg-theme-button-color, #2481cc); }
+
+/* ── Week chart ── */
+.week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.week-col { text-align: center; }
+.week-bar-wrap { height: 90px; background: rgba(0,0,0,.07); border-radius: 5px; position: relative; overflow: hidden; }
+.week-bar-fill { position: absolute; bottom: 0; left: 0; right: 0; border-radius: 5px; transition: height .5s ease; }
+.week-lbl { font-size: 11px; color: var(--tg-theme-hint-color, #999); margin-top: 4px; }
+.week-num { font-size: 10px; color: var(--tg-theme-hint-color, #999); }
+
+/* ── Week summary ── */
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stat-label { font-size: 12px; color: var(--tg-theme-hint-color, #999); }
+.stat-val { font-size: 26px; font-weight: 700; }
+.stat-unit { font-size: 13px; color: var(--tg-theme-hint-color, #999); }
+
+/* ── Profile ── */
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.info-item .info-label { font-size: 12px; color: var(--tg-theme-hint-color, #999); margin-bottom: 2px; }
+.info-item .info-val { font-size: 20px; font-weight: 700; }
+
+/* ── Section headers ── */
+.sect-title { font-size: 22px; font-weight: 700; margin-bottom: 16px; }
+.sect-sub { font-size: 14px; color: var(--tg-theme-hint-color, #999); margin-bottom: 20px; }
+
+/* ── Bottom nav ── */
+.nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  display: none;
+  background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+  border-top: 1px solid rgba(0,0,0,.1);
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 100;
+}
+.nav.visible { display: flex; }
+.nav-btn { flex: 1; padding: 10px 0 8px; text-align: center; cursor: pointer; border: none; background: none; color: var(--tg-theme-hint-color, #999); transition: color .15s; }
+.nav-btn.active { color: var(--tg-theme-button-color, #2481cc); }
+.nav-icon { font-size: 22px; line-height: 1; }
+.nav-text { font-size: 10px; margin-top: 2px; }
+
+/* ── Empty state ── */
+.empty { color: var(--tg-theme-hint-color, #999); font-size: 14px; padding: 12px 0; text-align: center; }
+
+/* ── Loading ── */
+#loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  font-size: 15px;
+  color: var(--tg-theme-hint-color, #999);
+}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading">Загрузка...</div>
+
+<!-- ══ SETUP WIZARD ══ -->
+<div id="setup">
+
+  <!-- Шаг 1: Рост -->
+  <div class="step active" id="step-height">
+    <div class="setup-title">Привет! 👋</div>
+    <div class="setup-sub">Настроим приложение под тебя — займёт минуту</div>
+    <div class="inp-wrap">
+      <label class="inp-label">Рост (см)</label>
+      <input class="inp" type="number" id="inp-height" placeholder="175" inputmode="numeric">
+    </div>
+    <button class="btn" onclick="nextStep('height')">Далее →</button>
+  </div>
+
+  <!-- Шаг 2: Вес -->
+  <div class="step" id="step-weight">
+    <div class="setup-title">Твой вес ⚖️</div>
+    <div class="setup-sub">Текущий вес в килограммах</div>
+    <div class="inp-wrap">
+      <label class="inp-label">Вес (кг)</label>
+      <input class="inp" type="number" id="inp-weight" placeholder="70" inputmode="numeric">
+    </div>
+    <button class="btn" onclick="nextStep('weight')">Далее →</button>
+    <button class="btn-ghost" onclick="prevStep('weight')">← Назад</button>
+  </div>
+
+  <!-- Шаг 3: Пол -->
+  <div class="step" id="step-gender">
+    <div class="setup-title">Пол</div>
+    <div class="setup-sub">Влияет на расчёт нормы калорий</div>
+    <div class="opt-grid">
+      <button class="opt-btn" id="g-m" onclick="pick('gender','м','g-m','g-j')">♂ Мужской</button>
+      <button class="opt-btn" id="g-j" onclick="pick('gender','ж','g-j','g-m')">♀ Женский</button>
+    </div>
+    <button class="btn" onclick="nextStep('gender')">Далее →</button>
+    <button class="btn-ghost" onclick="prevStep('gender')">← Назад</button>
+  </div>
+
+  <!-- Шаг 4: Возраст -->
+  <div class="step" id="step-age">
+    <div class="setup-title">Возраст 🎂</div>
+    <div class="setup-sub">Сколько тебе лет</div>
+    <div class="inp-wrap">
+      <label class="inp-label">Возраст (лет)</label>
+      <input class="inp" type="number" id="inp-age" placeholder="25" inputmode="numeric">
+    </div>
+    <button class="btn" onclick="nextStep('age')">Далее →</button>
+    <button class="btn-ghost" onclick="prevStep('age')">← Назад</button>
+  </div>
+
+  <!-- Шаг 5: Цель -->
+  <div class="step" id="step-goal">
+    <div class="setup-title">Цель 🎯</div>
+    <div class="setup-sub">Выбери что хочешь достичь</div>
+    <div class="opt-col">
+      <button class="opt-big" id="goal-1" onclick="pick('goal',1,'goal-1','goal-2','goal-3')">
+        <div class="opt-title">🔥 Похудение</div>
+        <div class="opt-sub">Дефицит калорий — минус 20%</div>
+      </button>
+      <button class="opt-big" id="goal-2" onclick="pick('goal',2,'goal-2','goal-1','goal-3')">
+        <div class="opt-title">⚖️ Поддержание</div>
+        <div class="opt-sub">Держать текущий вес</div>
+      </button>
+      <button class="opt-big" id="goal-3" onclick="pick('goal',3,'goal-3','goal-1','goal-2')">
+        <div class="opt-title">💪 Набор массы</div>
+        <div class="opt-sub">Профицит калорий — плюс 20%</div>
+      </button>
+    </div>
+    <button class="btn" onclick="finishSetup()">Начать! 🚀</button>
+    <button class="btn-ghost" onclick="prevStep('goal')">← Назад</button>
+  </div>
+
+</div>
+
+<!-- ══ MAIN APP ══ -->
+<div id="app" style="display:none;">
+
+  <!-- ── Сегодня ── -->
+  <div class="screen active" id="scr-today">
+    <div class="sect-title">Сегодня</div>
+
+    <!-- Кольцо калорий -->
+    <div class="ring-wrap">
+      <div style="position:relative; width:200px; height:200px;">
+        <svg width="200" height="200" style="transform:rotate(-90deg);" viewBox="0 0 200 200">
+          <circle cx="100" cy="100" r="82" fill="none" stroke="rgba(0,0,0,.08)" stroke-width="16"/>
+          <circle id="ring" cx="100" cy="100" r="82" fill="none"
+            stroke="var(--tg-theme-button-color,#2481cc)" stroke-width="16"
+            stroke-linecap="round"
+            stroke-dasharray="515" stroke-dashoffset="515"
+            style="transition:stroke-dashoffset .6s ease;"/>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-eaten" id="r-eaten">0</div>
+          <div class="ring-sub">съедено</div>
+          <div class="ring-left" id="r-left">— ккал</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- БЖУ -->
+    <div class="card">
+      <div class="macro-grid">
+        <div class="macro-item">
+          <div class="macro-name">Белки</div>
+          <div class="macro-val" id="m-p">0г</div>
+          <div class="bar-bg"><div class="bar-fill" id="bar-p" style="width:0%;background:#4CAF50;"></div></div>
+        </div>
+        <div class="macro-item">
+          <div class="macro-name">Жиры</div>
+          <div class="macro-val" id="m-f">0г</div>
+          <div class="bar-bg"><div class="bar-fill" id="bar-f" style="width:0%;background:#FF9800;"></div></div>
+        </div>
+        <div class="macro-item">
+          <div class="macro-name">Углеводы</div>
+          <div class="macro-val" id="m-c">0г</div>
+          <div class="bar-bg"><div class="bar-fill" id="bar-c" style="width:0%;background:#2196F3;"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Список записей -->
+    <div class="card">
+      <div style="font-weight:600; margin-bottom:10px;">Приёмы пищи</div>
+      <div id="today-logs"><div class="empty">Ничего не записано</div></div>
+    </div>
+
+    <button class="btn" onclick="showScr('add')">+ Добавить еду</button>
+  </div>
+
+  <!-- ── Добавить ── -->
+  <div class="screen" id="scr-add">
+    <div class="sect-title">Добавить еду</div>
+
+    <div class="card">
+      <div class="inp-wrap">
+        <label class="inp-label">Название (необязательно)</label>
+        <input class="inp" type="text" id="a-name" placeholder="Например: гречка с курицей">
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-size:14px; color:var(--tg-theme-hint-color); margin-bottom:12px; font-weight:500;">Калории и БЖУ</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div class="inp-wrap" style="margin-bottom:0;">
+          <label class="inp-label">🔥 Калории</label>
+          <input class="inp" type="number" id="a-cal" placeholder="450" inputmode="decimal">
+        </div>
+        <div class="inp-wrap" style="margin-bottom:0;">
+          <label class="inp-label" style="color:#4CAF50;">🥩 Белки (г)</label>
+          <input class="inp" type="number" id="a-p" placeholder="30" inputmode="decimal">
+        </div>
+        <div class="inp-wrap" style="margin-bottom:0;">
+          <label class="inp-label" style="color:#FF9800;">🧈 Жиры (г)</label>
+          <input class="inp" type="number" id="a-f" placeholder="10" inputmode="decimal">
+        </div>
+        <div class="inp-wrap" style="margin-bottom:0;">
+          <label class="inp-label" style="color:#2196F3;">🍞 Углеводы (г)</label>
+          <input class="inp" type="number" id="a-c" placeholder="50" inputmode="decimal">
+        </div>
+      </div>
+    </div>
+
+    <button class="btn" onclick="addFood()">✅ Записать</button>
+    <button class="btn-ghost" onclick="showScr('today')">Отмена</button>
+  </div>
+
+  <!-- ── Неделя ── -->
+  <div class="screen" id="scr-week">
+    <div class="sect-title">Неделя</div>
+
+    <div class="card">
+      <div class="week-grid" id="week-chart">
+        <div class="empty" style="grid-column:span 7;">Загрузка...</div>
+      </div>
+    </div>
+
+    <div class="card" id="week-summary">
+      <div class="empty">Нет данных за эту неделю</div>
+    </div>
+  </div>
+
+  <!-- ── Профиль ── -->
+  <div class="screen" id="scr-profile">
+    <div class="sect-title">Профиль</div>
+
+    <div class="card" id="prof-info">
+      <div class="empty">Загрузка...</div>
+    </div>
+
+    <div class="card" style="text-align:center;">
+      <div style="font-size:13px; color:var(--tg-theme-hint-color); margin-bottom:6px;">Дневная норма</div>
+      <div id="prof-norm" style="font-size:40px; font-weight:800; color:var(--tg-theme-button-color,#2481cc);">—</div>
+      <div style="font-size:14px; color:var(--tg-theme-hint-color);">ккал / день</div>
+    </div>
+
+    <button class="btn" onclick="startSetup()" style="margin-bottom:0;">✏️ Изменить данные</button>
+    <button class="btn-danger" onclick="doReset()">🗑 Удалить все данные</button>
+  </div>
+
+  <!-- ── Bottom nav ── -->
+  <nav class="nav visible">
+    <button class="nav-btn active" id="nav-today" onclick="showScr('today')">
+      <div class="nav-icon">📊</div>
+      <div class="nav-text">Сегодня</div>
+    </button>
+    <button class="nav-btn" id="nav-add" onclick="showScr('add')">
+      <div class="nav-icon">➕</div>
+      <div class="nav-text">Добавить</div>
+    </button>
+    <button class="nav-btn" id="nav-week" onclick="showScr('week')">
+      <div class="nav-icon">📅</div>
+      <div class="nav-text">Неделя</div>
+    </button>
+    <button class="nav-btn" id="nav-profile" onclick="showScr('profile')">
+      <div class="nav-icon">👤</div>
+      <div class="nav-text">Профиль</div>
+    </button>
+  </nav>
+</div>
+
+<script>
+const tg   = window.Telegram.WebApp;
+tg.ready();
+tg.expand();
+
+const userId = tg.initDataUnsafe?.user?.id || 0;
+
+// ── Setup state ──────────────────────────
+const sd = { height: null, weight: null, gender: null, age: null, goal: null };
+const STEPS = ['height', 'weight', 'gender', 'age', 'goal'];
+
+// ── Init ─────────────────────────────────
+async function init() {
+  try {
+    const user = await api(`/api/user/${userId}`);
+    if (user) showApp();
+    else       showSetup();
+  } catch {
+    showSetup();
+  }
+  document.getElementById('loading').style.display = 'none';
+}
+
+// ── API ───────────────────────────────────
+async function api(url, method = 'GET', body = null) {
+  const opts = { method, headers: {} };
+  if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+  const r = await fetch(url, opts);
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+// ── Setup ─────────────────────────────────
+function showSetup() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('setup').style.display   = 'block';
+  document.getElementById('app').style.display     = 'none';
+  goStep(0);
+}
+
+function showApp() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('setup').style.display   = 'none';
+  document.getElementById('app').style.display     = 'block';
+  loadToday();
+}
+
+function goStep(idx) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step-' + STEPS[idx]).classList.add('active');
+}
+
+function prevStep(cur) { goStep(STEPS.indexOf(cur) - 1); }
+
+function nextStep(cur) {
+  const inp = document.getElementById('inp-' + cur);
+  if (inp) {
+    const v = parseFloat(inp.value);
+    if (!v || v <= 0) { tg.showAlert('Введи корректное значение'); return; }
+    sd[cur] = v;
+  } else {
+    if (sd[cur] === null) { tg.showAlert('Сделай выбор'); return; }
+  }
+  goStep(STEPS.indexOf(cur) + 1);
+}
+
+function pick(field, val, ...ids) {
+  sd[field] = val;
+  ids.forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('sel', i === 0);
+  });
+}
+
+async function finishSetup() {
+  if (!sd.goal) { tg.showAlert('Выбери цель'); return; }
+  try {
+    await api('/api/user', 'POST', { user_id: userId, ...sd });
+    showApp();
+    showScr('today');
+  } catch { tg.showAlert('Ошибка сохранения. Попробуй снова.'); }
+}
+
+function startSetup() {
+  Object.keys(sd).forEach(k => sd[k] = null);
+  document.querySelectorAll('.opt-btn, .opt-big').forEach(b => b.classList.remove('sel'));
+  ['inp-height','inp-weight','inp-age'].forEach(id => document.getElementById(id).value = '');
+  showSetup();
+}
+
+// ── Screens ───────────────────────────────
+function showScr(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('scr-' + name).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const nb = document.getElementById('nav-' + name);
+  if (nb) nb.classList.add('active');
+  if (name === 'today')   loadToday();
+  if (name === 'week')    loadWeek();
+  if (name === 'profile') loadProfile();
+}
+
+// ── Today ─────────────────────────────────
+async function loadToday() {
+  try {
+    const [td, user] = await Promise.all([
+      api(`/api/today/${userId}`),
+      api(`/api/user/${userId}`)
+    ]);
+    if (!td || !user) return;
+
+    const norm  = user.calorie_norm;
+    const eaten = Math.round(td.calories);
+    const left  = Math.round(norm - eaten);
+    const pct   = Math.min(td.calories / norm, 1);
+
+    // Ring
+    const circ = 515;
+    document.getElementById('ring').style.strokeDashoffset = circ - pct * circ;
+    document.getElementById('r-eaten').textContent = eaten;
+    document.getElementById('r-left').innerHTML =
+      `<span style="color:${left>=0?'var(--tg-theme-button-color,#2481cc)':'#f44336'}">${left>=0?'осталось':'перебор'}: ${Math.abs(left)}</span> ккал`;
+
+    // БЖУ
+    document.getElementById('m-p').textContent = Math.round(td.protein) + 'г';
+    document.getElementById('m-f').textContent = Math.round(td.fat) + 'г';
+    document.getElementById('m-c').textContent = Math.round(td.carbs) + 'г';
+
+    const tP = norm*.25/4, tF = norm*.30/9, tC = norm*.45/4;
+    document.getElementById('bar-p').style.width = Math.min(td.protein/tP*100,100)+'%';
+    document.getElementById('bar-f').style.width = Math.min(td.fat/tF*100,100)+'%';
+    document.getElementById('bar-c').style.width = Math.min(td.carbs/tC*100,100)+'%';
+
+    // Logs
+    const el = document.getElementById('today-logs');
+    el.innerHTML = td.logs.length
+      ? td.logs.map(l => `
+        <div class="log-item">
+          <div>
+            <div class="log-name">${l.food_name || 'Приём пищи'}</div>
+            <div class="log-macro">Б${Math.round(l.protein)} Ж${Math.round(l.fat)} У${Math.round(l.carbs)}</div>
+          </div>
+          <div class="log-cal">${Math.round(l.calories)} ккал</div>
+        </div>`).join('')
+      : '<div class="empty">Ничего не записано</div>';
+  } catch(e) { console.error(e); }
+}
+
+// ── Add food ──────────────────────────────
+async function addFood() {
+  const cal  = parseFloat(document.getElementById('a-cal').value);
+  const p    = parseFloat(document.getElementById('a-p').value) || 0;
+  const f    = parseFloat(document.getElementById('a-f').value) || 0;
+  const c    = parseFloat(document.getElementById('a-c').value) || 0;
+  const name = document.getElementById('a-name').value.trim();
+
+  if (!cal || cal <= 0) { tg.showAlert('Введи количество калорий'); return; }
+
+  try {
+    await api('/api/log', 'POST', { user_id: userId, calories: cal, protein: p, fat: f, carbs: c, food_name: name });
+    ['a-cal','a-p','a-f','a-c','a-name'].forEach(id => document.getElementById(id).value = '');
+    tg.showAlert('✅ Записано!');
+    showScr('today');
+  } catch { tg.showAlert('Ошибка. Попробуй снова.'); }
+}
+
+// ── Week ──────────────────────────────────
+async function loadWeek() {
+  try {
+    const [week, user] = await Promise.all([
+      api(`/api/week/${userId}`),
+      api(`/api/user/${userId}`)
+    ]);
+    if (!week || !user) return;
+
+    const norm = user.calorie_norm;
+    const days = [], DN = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const ds = d.toISOString().split('T')[0];
+      const fd = week.find(r => r.date === ds);
+      days.push({ label: DN[d.getDay()===0?6:d.getDay()-1], calories: fd?fd.calories:0, protein: fd?fd.protein:0, fat: fd?fd.fat:0, carbs: fd?fd.carbs:0 });
+    }
+
+    const maxC = Math.max(...days.map(d => d.calories), norm, 1);
+    document.getElementById('week-chart').innerHTML = days.map(d => `
+      <div class="week-col">
+        <div class="week-bar-wrap">
+          <div class="week-bar-fill" style="height:${d.calories?d.calories/maxC*100:0}%;background:${d.calories>norm?'#f44336':'var(--tg-theme-button-color,#2481cc)'}"></div>
+        </div>
+        <div class="week-lbl">${d.label}</div>
+        <div class="week-num">${d.calories?Math.round(d.calories):'—'}</div>
+      </div>`).join('');
+
+    const active = days.filter(d => d.calories > 0);
+    if (active.length) {
+      const tc=active.reduce((s,d)=>s+d.calories,0);
+      const tp=active.reduce((s,d)=>s+d.protein,0);
+      const tf=active.reduce((s,d)=>s+d.fat,0);
+      const tcc=active.reduce((s,d)=>s+d.carbs,0);
+      document.getElementById('week-summary').innerHTML = `
+        <div class="stat-grid">
+          <div><div class="stat-label">Среднее / день</div><div class="stat-val" style="color:var(--tg-theme-button-color)">${Math.round(tc/active.length)}</div><div class="stat-unit">ккал</div></div>
+          <div><div class="stat-label">Всего за неделю</div><div class="stat-val">${Math.round(tc)}</div><div class="stat-unit">ккал</div></div>
+        </div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(0,0,0,.07);display:flex;gap:16px;font-size:13px;font-weight:600;">
+          <span style="color:#4CAF50">Б ${Math.round(tp)}г</span>
+          <span style="color:#FF9800">Ж ${Math.round(tf)}г</span>
+          <span style="color:#2196F3">У ${Math.round(tcc)}г</span>
+        </div>`;
+    } else {
+      document.getElementById('week-summary').innerHTML = '<div class="empty">Нет данных за эту неделю</div>';
+    }
+  } catch(e) { console.error(e); }
+}
+
+// ── Profile ───────────────────────────────
+async function loadProfile() {
+  try {
+    const user = await api(`/api/user/${userId}`);
+    if (!user) return;
+
+    const goals = { 1:'🔥 Похудение', 2:'⚖️ Поддержание', 3:'💪 Набор массы' };
+    document.getElementById('prof-norm').textContent = Math.round(user.calorie_norm);
+    document.getElementById('prof-info').innerHTML = `
+      <div class="info-grid">
+        <div class="info-item"><div class="info-label">Рост</div><div class="info-val">${user.height} см</div></div>
+        <div class="info-item"><div class="info-label">Вес</div><div class="info-val">${user.weight} кг</div></div>
+        <div class="info-item"><div class="info-label">Пол</div><div class="info-val">${user.gender==='м'?'Мужской':'Женский'}</div></div>
+        <div class="info-item"><div class="info-label">Возраст</div><div class="info-val">${user.age} лет</div></div>
+      </div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(0,0,0,.07);">
+        <div class="info-label">Цель</div>
+        <div style="font-size:17px;font-weight:700;margin-top:4px;">${goals[user.goal]}</div>
+      </div>`;
+  } catch(e) { console.error(e); }
+}
+
+function doReset() {
+  tg.showConfirm('Удалить все данные и начать заново?', async ok => {
+    if (!ok) return;
+    await api(`/api/user/${userId}`, 'DELETE');
+    startSetup();
+  });
+}
+
+init();
+</script>
+</body>
+</html>
